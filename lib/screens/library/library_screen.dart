@@ -3,6 +3,7 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:reading_tracker/models/models.dart';
 import 'package:reading_tracker/services/book_service.dart';
 import 'package:reading_tracker/screens/library/add_book_screen.dart';
+import 'package:reading_tracker/screens/book_detail/book_detail_screen.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -87,17 +88,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
-  void _showBookDetails(Book book) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => BookDetailsBottomSheet(book: book),
+  void _navigateToBookDetail(Book book) {
+    Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => BookDetailScreen(book: book)),
     ).then((result) {
       if (result == true) {
-        _loadBooks();
+        _loadBooks(); // Refresh if book was deleted
       }
     });
   }
@@ -237,7 +234,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         itemBuilder: (context, index) {
           return BookCard(
             book: filteredBooks[index],
-            onTap: () => _showBookDetails(filteredBooks[index]),
+            onTap: () => _navigateToBookDetail(filteredBooks[index]),
           );
         },
       ),
