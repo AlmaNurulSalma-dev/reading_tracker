@@ -1,0 +1,27 @@
+name: reading_tracker
+description: A reading tracker application built with Flutter.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  supabase_flutter: ^2.3.0
+  fl_chart: ^0.68.0
+  spline_flutter: ^0.0.2
+  flutter_heatmap_calendar: ^1.0.5
+  percent_indicator: ^4.2.3
+  file_picker: ^8.0.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
