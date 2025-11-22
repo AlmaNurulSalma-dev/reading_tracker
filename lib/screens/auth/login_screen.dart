@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:reading_tracker/main.dart';
+import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/services/auth_service.dart';
 import 'package:reading_tracker/screens/auth/signup_screen.dart';
 
