@@ -8,3 +8,4 @@
 export 'auth/login_screen.dart';
 export 'auth/signup_screen.dart';
 export 'home/dashboard_screen.dart';
+export 'library/library_screen.dart';
