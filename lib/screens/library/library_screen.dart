@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:reading_tracker/models/models.dart';
 import 'package:reading_tracker/services/book_service.dart';
+import 'package:reading_tracker/screens/library/add_book_screen.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -75,16 +76,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return filtered;
   }
 
-  void _showAddBookDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => const AddBookBottomSheet(),
+  void _navigateToAddBook() {
+    Navigator.push<Book>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddBookScreen()),
     ).then((result) {
-      if (result == true) {
+      if (result != null) {
         _loadBooks();
       }
     });
@@ -130,7 +127,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddBookDialog,
+        onPressed: _navigateToAddBook,
         icon: const Icon(Icons.add),
         label: const Text('Add Book'),
       ),
@@ -276,7 +273,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
-              onPressed: _showAddBookDialog,
+              onPressed: _navigateToAddBook,
               icon: const Icon(Icons.add),
               label: const Text('Add Your First Book'),
             ),
