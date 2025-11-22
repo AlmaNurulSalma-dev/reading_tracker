@@ -1,0 +1,12 @@
+# Spline Assets Directory
+
+Place your exported .splinecode files here.
+
+## How to add a Spline scene:
+
+1. Design your scene at https://spline.design
+2. Export as "Code Export" (.splinecode)
+3. Place the file in this directory
+4. Reference in code: 'assets/spline/your-scene.splinecode'
+
+See SPLINE_INTEGRATION.md in the project root for detailed instructions.
