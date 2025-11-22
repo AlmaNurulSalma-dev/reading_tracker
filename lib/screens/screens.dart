@@ -12,3 +12,4 @@ export 'home/dashboard_screen.dart';
 export 'library/add_book_screen.dart';
 export 'library/library_screen.dart';
 export 'reading/log_reading_screen.dart';
+export 'statistics/statistics_screen.dart';
