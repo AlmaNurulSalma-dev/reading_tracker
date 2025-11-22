@@ -1,0 +1,6 @@
+/// Reusable widgets for the Reading Tracker app.
+library;
+
+export 'book_card.dart';
+export 'stat_card.dart';
+export 'custom_app_bar.dart';
