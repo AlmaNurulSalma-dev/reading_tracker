@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:reading_tracker/services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO: Initialize Supabase with your credentials
-  // await Supabase.initialize(
-  //   url: 'YOUR_SUPABASE_URL',
-  //   anonKey: 'YOUR_SUPABASE_ANON_KEY',
-  // );
+  // Initialize Supabase with environment variables
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Supabase initialization error: $e');
+    // App will still run, but Supabase features won't work
+  }
 
   runApp(const ReadingTrackerApp());
 }
