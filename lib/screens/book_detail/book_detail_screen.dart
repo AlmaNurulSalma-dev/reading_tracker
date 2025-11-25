@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:reading_tracker/models/models.dart';
 import 'package:reading_tracker/services/book_service.dart';
-import 'package:reading_tracker/services/reading_log_service.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/utils/routes.dart';
+import 'package:reading_tracker/providers/providers.dart';
+import 'package:reading_tracker/widgets/widgets.dart';
 
-class BookDetailScreen extends StatefulWidget {
+class BookDetailScreen extends ConsumerStatefulWidget {
   final Book book;
 
   const BookDetailScreen({
@@ -17,46 +19,17 @@ class BookDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<BookDetailScreen> createState() => _BookDetailScreenState();
+  ConsumerState<BookDetailScreen> createState() => _BookDetailScreenState();
 }
 
-class _BookDetailScreenState extends State<BookDetailScreen> {
+class _BookDetailScreenState extends ConsumerState<BookDetailScreen> {
   late Book _book;
-  List<ReadingLog> _readingLogs = [];
-  bool _isLoadingLogs = true;
   bool _isDeleting = false;
 
   @override
   void initState() {
     super.initState();
     _book = widget.book;
-    _loadReadingLogs();
-  }
-
-  Future<void> _loadReadingLogs() async {
-    setState(() {
-      _isLoadingLogs = true;
-    });
-
-    try {
-      final logs = await ReadingLogService.fetchReadingLogs(
-        bookId: _book.id,
-        dateRange: DateRange.lastDays(30),
-      );
-
-      if (mounted) {
-        setState(() {
-          _readingLogs = logs;
-          _isLoadingLogs = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingLogs = false;
-        });
-      }
-    }
   }
 
   Future<void> _refreshBook() async {
@@ -177,6 +150,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch reading logs for this book
+    final readingLogsAsync = ref.watch(bookReadingLogsProvider(_book.id));
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [

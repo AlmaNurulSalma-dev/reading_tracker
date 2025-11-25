@@ -1,99 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:reading_tracker/models/models.dart';
-import 'package:reading_tracker/services/book_service.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/utils/routes.dart';
+import 'package:reading_tracker/providers/providers.dart';
+import 'package:reading_tracker/widgets/widgets.dart';
 
-class LibraryScreen extends StatefulWidget {
+// Provider for search query
+final searchQueryProvider = StateProvider<String>((ref) => '');
+
+// Provider for current filter
+final currentFilterProvider = StateProvider<BookFilter>((ref) => BookFilter.all);
+
+// Provider for filtered and searched books
+final filteredAndSearchedBooksProvider = Provider<AsyncValue<List<Book>>>((ref) {
+  final booksAsync = ref.watch(booksProvider);
+  final filter = ref.watch(currentFilterProvider);
+  final searchQuery = ref.watch(searchQueryProvider);
+
+  return booksAsync.when(
+    data: (books) {
+      var filtered = books;
+
+      // Apply search filter
+      if (searchQuery.isNotEmpty) {
+        final query = searchQuery.toLowerCase();
+        filtered = filtered.where((book) {
+          return book.title.toLowerCase().contains(query) ||
+              (book.author?.toLowerCase().contains(query) ?? false);
+        }).toList();
+      }
+
+      // Apply status filter
+      switch (filter) {
+        case BookFilter.all:
+          break;
+        case BookFilter.reading:
+          filtered = filtered.where((book) => !book.isCompleted && book.currentPage > 0).toList();
+        case BookFilter.notStarted:
+          filtered = filtered.where((book) => book.currentPage == 0).toList();
+        case BookFilter.completed:
+          filtered = filtered.where((book) => book.isCompleted).toList();
+      }
+
+      return AsyncValue.data(filtered);
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+  );
+});
+
+class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
 
-  @override
-  State<LibraryScreen> createState() => _LibraryScreenState();
-}
-
-class _LibraryScreenState extends State<LibraryScreen> {
-  List<Book> _books = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-  String _searchQuery = '';
-  BookFilter _currentFilter = BookFilter.all;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBooks();
-  }
-
-  Future<void> _loadBooks() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final books = await BookService.fetchUserBooks();
-      if (mounted) {
-        setState(() {
-          _books = books;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Failed to load books: $e';
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  List<Book> get _filteredBooks {
-    var filtered = _books;
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((book) {
-        return book.title.toLowerCase().contains(query) ||
-            (book.author?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    }
-
-    // Apply status filter
-    switch (_currentFilter) {
-      case BookFilter.all:
-        break;
-      case BookFilter.reading:
-        filtered = filtered.where((book) => !book.isCompleted && book.currentPage > 0).toList();
-      case BookFilter.notStarted:
-        filtered = filtered.where((book) => book.currentPage == 0).toList();
-      case BookFilter.completed:
-        filtered = filtered.where((book) => book.isCompleted).toList();
-    }
-
-    return filtered;
-  }
-
-  void _navigateToAddBook() {
+  void _navigateToAddBook(BuildContext context, WidgetRef ref) {
     context.pushAddBook().then((result) {
       if (result != null) {
-        _loadBooks();
+        ref.read(booksProvider.notifier).refresh();
       }
     });
   }
 
-  void _navigateToBookDetail(Book book) {
+  void _navigateToBookDetail(BuildContext context, WidgetRef ref, Book book) {
     context.pushBookDetail(book).then((result) {
       if (result == true) {
-        _loadBooks(); // Refresh if book was deleted
+        ref.read(booksProvider.notifier).refresh();
       }
     });
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filteredBooksAsync = ref.watch(filteredAndSearchedBooksProvider);
+    final currentFilter = ref.watch(currentFilterProvider);
+    final searchQuery = ref.watch(searchQueryProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Library'),
@@ -214,7 +196,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
 
     return RefreshIndicator(
-      onRefresh: _loadBooks,
+      onRefresh: () => ref.read(booksProvider.notifier).refresh(),
       child: GridView.builder(
         padding: AppSpacing.paddingMd,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

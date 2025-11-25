@@ -1,57 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
-import 'package:reading_tracker/services/auth_service.dart';
 import 'package:reading_tracker/utils/routes.dart';
+import 'package:reading_tracker/providers/providers.dart';
+import 'package:reading_tracker/widgets/widgets.dart';
+import 'package:reading_tracker/services/auth_service.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  // Dummy data for demonstration
-  final int _todayPages = 42;
-  final int _currentStreak = 7;
-  final int _totalBooksReading = 3;
-  final int _completedBooks = 12;
-
-  // Generate dummy heatmap data for the last 365 days
-  Map<DateTime, int> _generateDummyHeatmapData() {
-    final Map<DateTime, int> data = {};
-    final now = DateTime.now();
-
-    for (int i = 0; i < 365; i++) {
-      final date = now.subtract(Duration(days: i));
-      final normalizedDate = DateTime(date.year, date.month, date.day);
-
-      // Generate random activity levels (0-4)
-      // More likely to have activity on recent days
-      final random = (date.day + date.month + i) % 10;
-      int level;
-      if (random < 2) {
-        level = 0; // No activity
-      } else if (random < 4) {
-        level = 1; // Light
-      } else if (random < 6) {
-        level = 2; // Moderate
-      } else if (random < 8) {
-        level = 3; // Good
-      } else {
-        level = 4; // Excellent
-      }
-
-      data[normalizedDate] = level;
-    }
-
-    return data;
-  }
-
-  Future<void> _handleSignOut() async {
+  Future<void> _handleSignOut(BuildContext context) async {
     final result = await AuthService.instance.signOut();
-    if (!result.success && mounted) {
+    if (!result.success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.errorMessage ?? 'Failed to sign out'),
@@ -62,10 +23,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final user = AuthService.instance.currentUser;
-    final displayName = AuthService.instance.displayName ??
-        user?.email?.split('@').first ?? 'Reader';
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Watch providers for reactive updates
+    final displayName = ref.watch(userDisplayNameProvider) ?? 'Reader';
+    final todayPages = ref.watch(todayPagesReadProvider);
+    final currentStreak = ref.watch(currentStreakProvider);
+    final readingBooksCount = ref.watch(readingBooksCountProvider);
+    final completedBooksCount = ref.watch(completedBooksCountProvider);
+    final heatmapDataAsync = ref.watch(heatmapDataProvider(365));
 
     return Scaffold(
       appBar: AppBar(
@@ -80,15 +45,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _handleSignOut,
+            onPressed: () => _handleSignOut(context),
             tooltip: 'Sign Out',
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // TODO: Refresh data
-          await Future.delayed(const Duration(seconds: 1));
+          // Refresh all providers
+          ref.invalidate(todayPagesReadProvider);
+          ref.invalidate(currentStreakProvider);
+          ref.invalidate(heatmapDataProvider(365));
+          ref.read(booksProvider.notifier).refresh();
+          ref.read(readingLogsProvider.notifier).refresh();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -102,10 +71,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildWelcomeSection(displayName),
 
               // Quick Stats Cards
-              _buildQuickStatsSection(),
+              _buildQuickStatsSection(
+                todayPages: todayPages,
+                currentStreak: currentStreak.when(
+                  data: (streak) => streak,
+                  loading: () => 0,
+                  error: (_, __) => 0,
+                ),
+                totalBooksReading: readingBooksCount,
+                completedBooks: completedBooksCount,
+              ),
 
               // Reading Heatmap Calendar
-              _buildHeatmapSection(),
+              _buildHeatmapSection(heatmapDataAsync),
 
               // Recent Activity (placeholder)
               _buildRecentActivitySection(),
@@ -267,7 +245,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildQuickStatsSection() {
+  Widget _buildQuickStatsSection({
+    required int todayPages,
+    required int currentStreak,
+    required int totalBooksReading,
+    required int completedBooks,
+  }) {
     return Padding(
       padding: AppSpacing.horizontalMd,
       child: Column(
@@ -286,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildStatCard(
                   icon: Icons.menu_book_rounded,
                   label: "Today's Pages",
-                  value: _todayPages.toString(),
+                  value: todayPages.toString(),
                   color: AppColors.tertiary,
                   gradient: AppGradients.tertiaryGradient,
                 ),
@@ -296,7 +279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildStatCard(
                   icon: Icons.local_fire_department_rounded,
                   label: 'Day Streak',
-                  value: '$_currentStreak days',
+                  value: '$currentStreak ${currentStreak == 1 ? 'day' : 'days'}',
                   color: AppColors.accent,
                   gradient: AppGradients.accentGradient,
                 ),
@@ -310,7 +293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildStatCard(
                   icon: Icons.auto_stories_rounded,
                   label: 'Currently Reading',
-                  value: '$_totalBooksReading books',
+                  value: '$totalBooksReading ${totalBooksReading == 1 ? 'book' : 'books'}',
                   color: AppColors.primary,
                   gradient: AppGradients.primaryGradient,
                 ),
@@ -320,7 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildStatCard(
                   icon: Icons.emoji_events_rounded,
                   label: 'Completed',
-                  value: '$_completedBooks books',
+                  value: '$completedBooks ${completedBooks == 1 ? 'book' : 'books'}',
                   color: AppColors.secondary,
                   gradient: AppGradients.secondaryGradient,
                 ),
@@ -379,9 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildHeatmapSection() {
-    final heatmapData = _generateDummyHeatmapData();
-
+  Widget _buildHeatmapSection(AsyncValue<Map<DateTime, int>> heatmapDataAsync) {
     return Padding(
       padding: AppSpacing.paddingMd,
       child: Column(
@@ -405,41 +386,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Card(
-            child: Padding(
-              padding: AppSpacing.paddingMd,
-              child: Column(
-                children: [
-                  // Heatmap Calendar
-                  SizedBox(
-                    height: 160,
-                    child: HeatMapCalendar(
-                      datasets: heatmapData,
-                      colorMode: ColorMode.color,
-                      defaultColor: AppColors.heatmapLevel0,
-                      textColor: AppColors.textSecondary,
-                      colorsets: const {
-                        1: AppColors.heatmapLevel1,
-                        2: AppColors.heatmapLevel2,
-                        3: AppColors.heatmapLevel3,
-                        4: AppColors.heatmapLevel4,
-                      },
-                      onClick: (date) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Activity on ${date.day}/${date.month}/${date.year}',
+          heatmapDataAsync.when(
+            data: (heatmapData) => Card(
+              child: Padding(
+                padding: AppSpacing.paddingMd,
+                child: Column(
+                  children: [
+                    // Heatmap Calendar
+                    SizedBox(
+                      height: 160,
+                      child: HeatMapCalendar(
+                        datasets: heatmapData,
+                        colorMode: ColorMode.color,
+                        defaultColor: AppColors.heatmapLevel0,
+                        textColor: AppColors.textSecondary,
+                        colorsets: const {
+                          1: AppColors.heatmapLevel1,
+                          2: AppColors.heatmapLevel2,
+                          3: AppColors.heatmapLevel3,
+                          4: AppColors.heatmapLevel4,
+                        },
+                        onClick: (date) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Activity on ${date.day}/${date.month}/${date.year}',
+                              ),
+                              duration: const Duration(seconds: 1),
                             ),
-                            duration: const Duration(seconds: 1),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    // Legend
+                    _buildHeatmapLegend(),
+                  ],
+                ),
+              ),
+            ),
+            loading: () => Card(
+              child: Padding(
+                padding: AppSpacing.paddingMd,
+                child: const SizedBox(
+                  height: 160,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+            ),
+            error: (error, _) => Card(
+              child: Padding(
+                padding: AppSpacing.paddingMd,
+                child: SizedBox(
+                  height: 160,
+                  child: ErrorDisplay(
+                    error: 'Failed to load heatmap data',
+                    onRetry: null,
+                    fullScreen: false,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  // Legend
-                  _buildHeatmapLegend(),
-                ],
+                ),
               ),
             ),
           ),

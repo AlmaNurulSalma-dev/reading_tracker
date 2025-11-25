@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reading_tracker/services/supabase_service.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/utils/routes.dart';
@@ -14,7 +15,11 @@ void main() async {
     // App will still run, but Supabase features won't work
   }
 
-  runApp(const ReadingTrackerApp());
+  runApp(
+    const ProviderScope(
+      child: ReadingTrackerApp(),
+    ),
+  );
 }
 
 class ReadingTrackerApp extends StatelessWidget {
