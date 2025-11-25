@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/services/auth_service.dart';
-import 'package:reading_tracker/screens/reading/log_reading_screen.dart';
+import 'package:reading_tracker/utils/routes.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -116,12 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const LogReadingScreen()),
-          );
-        },
+        onPressed: () => context.goToLogReading(),
         icon: const Icon(Icons.add),
         label: const Text('Log Reading'),
       ),

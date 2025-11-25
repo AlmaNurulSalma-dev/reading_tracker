@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:reading_tracker/models/models.dart';
 import 'package:reading_tracker/services/book_service.dart';
-import 'package:reading_tracker/screens/library/add_book_screen.dart';
-import 'package:reading_tracker/screens/book_detail/book_detail_screen.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
+import 'package:reading_tracker/utils/routes.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -78,10 +77,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _navigateToAddBook() {
-    Navigator.push<Book>(
-      context,
-      MaterialPageRoute(builder: (_) => const AddBookScreen()),
-    ).then((result) {
+    context.pushAddBook().then((result) {
       if (result != null) {
         _loadBooks();
       }
@@ -89,10 +85,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _navigateToBookDetail(Book book) {
-    Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => BookDetailScreen(book: book)),
-    ).then((result) {
+    context.pushBookDetail(book).then((result) {
       if (result == true) {
         _loadBooks(); // Refresh if book was deleted
       }

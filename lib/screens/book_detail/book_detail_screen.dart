@@ -5,8 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:reading_tracker/models/models.dart';
 import 'package:reading_tracker/services/book_service.dart';
 import 'package:reading_tracker/services/reading_log_service.dart';
-import 'package:reading_tracker/screens/reading/log_reading_screen.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
+import 'package:reading_tracker/utils/routes.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final Book book;
@@ -168,12 +168,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   }
 
   void _navigateToLogReading() {
-    Navigator.push<bool>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LogReadingScreen(initialBook: _book),
-      ),
-    ).then((result) {
+    context.pushLogReading<bool>(_book).then((result) {
       if (result == true) {
         _refreshBook();
       }
