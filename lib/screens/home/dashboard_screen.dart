@@ -3,12 +3,42 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import 'package:reading_tracker/utils/app_theme.dart';
 import 'package:reading_tracker/utils/routes.dart';
+import 'package:reading_tracker/utils/streak_calculator.dart';
 import 'package:reading_tracker/providers/providers.dart';
 import 'package:reading_tracker/widgets/widgets.dart';
 import 'package:reading_tracker/services/auth_service.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _showCelebration = false;
+  int? _celebrationStreak;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for streak changes after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkStreakIncrease();
+    });
+  }
+
+  void _checkStreakIncrease() {
+    // Watch for streak celebration trigger
+    ref.listen<int?>(streakCelebrationTriggerProvider, (previous, next) {
+      if (next != null && mounted) {
+        setState(() {
+          _showCelebration = true;
+          _celebrationStreak = next;
+        });
+      }
+    });
+  }
 
   Future<void> _handleSignOut(BuildContext context) async {
     final result = await AuthService.instance.signOut();
@@ -23,39 +53,42 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // Watch providers for reactive updates
     final displayName = ref.watch(userDisplayNameProvider) ?? 'Reader';
     final todayPages = ref.watch(todayPagesReadProvider);
-    final currentStreak = ref.watch(currentStreakProvider);
+    final streakStatsAsync = ref.watch(streakStatsProvider);
     final readingBooksCount = ref.watch(readingBooksCountProvider);
     final completedBooksCount = ref.watch(completedBooksCountProvider);
     final heatmapDataAsync = ref.watch(heatmapDataProvider(365));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reading Tracker'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Implement notifications
-            },
-            tooltip: 'Notifications',
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Reading Tracker'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () {
+                  // TODO: Implement notifications
+                },
+                tooltip: 'Notifications',
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                onPressed: () => _handleSignOut(context),
+                tooltip: 'Sign Out',
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _handleSignOut(context),
-            tooltip: 'Sign Out',
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         onRefresh: () async {
           // Refresh all providers
           ref.invalidate(todayPagesReadProvider);
-          ref.invalidate(currentStreakProvider);
+          ref.invalidate(streakStatsProvider);
           ref.invalidate(heatmapDataProvider(365));
+          ref.invalidate(lastDaysStatsProvider(365));
           ref.read(booksProvider.notifier).refresh();
           ref.read(readingLogsProvider.notifier).refresh();
         },
@@ -73,11 +106,7 @@ class DashboardScreen extends ConsumerWidget {
               // Quick Stats Cards
               _buildQuickStatsSection(
                 todayPages: todayPages,
-                currentStreak: currentStreak.when(
-                  data: (streak) => streak,
-                  loading: () => 0,
-                  error: (_, __) => 0,
-                ),
+                streakStatsAsync: streakStatsAsync,
                 totalBooksReading: readingBooksCount,
                 completedBooks: completedBooksCount,
               ),
@@ -92,12 +121,26 @@ class DashboardScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.goToLogReading(),
-        icon: const Icon(Icons.add),
-        label: const Text('Log Reading'),
-      ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => context.goToLogReading(),
+            icon: const Icon(Icons.add),
+            label: const Text('Log Reading'),
+          ),
+        ),
+
+        // Celebration animation overlay
+        if (_showCelebration && _celebrationStreak != null)
+          StreakCelebrationAnimation(
+            newStreak: _celebrationStreak!,
+            onComplete: () {
+              setState(() {
+                _showCelebration = false;
+                _celebrationStreak = null;
+              });
+            },
+          ),
+      ],
     );
   }
 
@@ -247,7 +290,7 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildQuickStatsSection({
     required int todayPages,
-    required int currentStreak,
+    required AsyncValue<StreakStats> streakStatsAsync,
     required int totalBooksReading,
     required int completedBooks,
   }) {
@@ -276,12 +319,22 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: _buildStatCard(
-                  icon: Icons.local_fire_department_rounded,
-                  label: 'Day Streak',
-                  value: '$currentStreak ${currentStreak == 1 ? 'day' : 'days'}',
-                  color: AppColors.accent,
-                  gradient: AppGradients.accentGradient,
+                child: streakStatsAsync.when(
+                  data: (streakStats) => _buildStreakCard(streakStats),
+                  loading: () => _buildStatCard(
+                    icon: Icons.local_fire_department_rounded,
+                    label: 'Day Streak',
+                    value: '...',
+                    color: AppColors.accent,
+                    gradient: AppGradients.accentGradient,
+                  ),
+                  error: (_, __) => _buildStatCard(
+                    icon: Icons.local_fire_department_rounded,
+                    label: 'Day Streak',
+                    value: '0',
+                    color: AppColors.accent,
+                    gradient: AppGradients.accentGradient,
+                  ),
                 ),
               ),
             ],
@@ -310,6 +363,72 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreakCard(StreakStats streakStats) {
+    return Container(
+      padding: AppSpacing.paddingMd,
+      decoration: BoxDecoration(
+        gradient: AppGradients.accentGradient,
+        borderRadius: AppRadius.borderRadiusMd,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accent.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '🔥',
+                style: TextStyle(fontSize: 28),
+              ),
+              const SizedBox(width: 8),
+              if (streakStats.level.isNotEmpty)
+                Expanded(
+                  child: Text(
+                    streakStats.level,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textPrimary.withOpacity(0.8),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '${streakStats.currentStreak}',
+            style: AppTextStyles.headlineSmall.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          Text(
+            '${streakStats.currentStreak == 1 ? 'Day' : 'Days'} Streak',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (streakStats.hasMilestone) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${streakStats.daysToNextMilestone} to ${streakStats.nextMilestone}',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textPrimary.withOpacity(0.7),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ],
       ),
     );

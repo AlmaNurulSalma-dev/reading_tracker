@@ -8,3 +8,4 @@ export 'heatmap_widget.dart';
 export 'spline_bookshelf.dart';
 export 'book_3d_model.dart';
 export 'async_value_widget.dart';
+export 'streak_celebration_animation.dart';
